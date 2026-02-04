@@ -1,142 +1,90 @@
 import streamlit as st
 import pandas as pd
-import json
-import os
-import urllib.parse
+from streamlit_gsheets import GSheetsConnection # Biblioteka do obsługi bazy
 
-# 1. Konfiguracja strony
-st.set_page_config(page_title="TopTracker KGP", page_icon="🏔️", layout="centered")
+# 1. Konfiguracja i Stylizacja Premium
+st.set_page_config(page_title="TopTracker Ranking", page_icon="🏆", layout="centered")
 
-# --- SYSTEM ZAPISU ---
-SAVE_FILE = "postepy.json"
-
-def load_user_data():
-    if os.path.exists(SAVE_FILE):
-        try:
-            with open(SAVE_FILE, "r") as f: return json.load(f)
-        except: pass
-    return {"zdobyte": [], "user_name": "Wędrowcze"}
-
-def save_user_data():
-    data = {"zdobyte": st.session_state.zdobyte, "user_name": st.session_state.user_name}
-    with open(SAVE_FILE, "w") as f: json.dump(data, f)
-
-# Inicjalizacja stanu
-init_data = load_user_data()
-if 'user_name' not in st.session_state: st.session_state.user_name = init_data["user_name"]
-if 'zdobyte' not in st.session_state: st.session_state.zdobyte = init_data["zdobyte"]
-
-# 2. Stylizacja "Wypas" (CSS)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    
-    /* Nagłówek profilu */
-    .profile-header {
-        display: flex; align-items: center; gap: 20px;
-        padding: 20px; background: rgba(255,255,255,0.03);
-        border-radius: 25px; border: 1px solid rgba(255,255,255,0.1);
-        margin-bottom: 25px;
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1e2130; border-radius: 10px; padding: 10px 20px; color: white;
     }
-
-    /* Okrągły postęp w stylu Apple Watch / Garmin */
-    .progress-circle {
-        border: 6px solid #00d4ff; border-radius: 50%;
-        width: 100px; height: 100px;
-        display: flex; flex-direction: column;
-        justify-content: center; align-items: center;
-        box-shadow: 0 0 20px rgba(0,212,255,0.2);
+    .user-card {
+        background: #1e2130; padding: 15px; border-radius: 15px;
+        border-left: 5px solid #00d4ff; margin-bottom: 10px;
     }
-
-    /* Kafelki szczytów */
-    .mountain-card {
-        background: #1e2130; border-radius: 20px;
-        padding: 15px 20px; margin-bottom: 12px;
-        border: 1px solid #2d3142;
-        transition: 0.3s;
-    }
-    
-    .stCheckbox { 
-        background: transparent !important; padding: 0 !important; 
-    }
-    
-    /* Ukrycie labela Streamlit i stylizacja tekstu */
-    .stCheckbox label p {
-        color: white !important; font-size: 17px !important; font-weight: 600 !important;
-    }
-
-    .map-btn {
-        background: #4caf50; color: white !important;
-        padding: 8px 15px; border-radius: 12px;
-        text-decoration: none; font-size: 14px; font-weight: bold;
-    }
-    
-    h1, h2 { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Logika Danych
-try:
-    df = pd.read_csv('dane.csv', sep=None, engine='python', skip_blank_lines=True).dropna(how='all')
+# 2. Połączenie z Bazą Danych (Google Sheets)
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+def get_data():
+    return conn.read(ttl="1s") # Odczyt danych w czasie rzeczywistym
+
+# 3. Logowanie / Profil (Bezpieczeństwo)
+if 'user_id' not in st.session_state:
+    st.markdown("### 🏔️ Witaj w TopTracker!")
+    u_name = st.text_input("Podaj swój unikalny Nick, aby zacząć:", placeholder="Np. GorskiWilk92")
+    if st.button("Wejdź do gry"):
+        if u_name:
+            st.session_state.user_id = u_name
+            st.rerun()
+        else:
+            st.warning("Musisz podać nick!")
+    st.stop()
+
+# 4. Główne Menu
+tab1, tab2 = st.tabs(["⛰️ Moje Szczyty", "🏆 Ranking Ogólny"])
+
+with tab1:
+    st.title(f"Profil: {st.session_state.user_id}")
     
-    # --- NAGŁÓWEK ---
-    z_n, r_n = len(st.session_state.zdobyte), len(df)
-    proc = int((z_n/r_n)*100) if r_n > 0 else 0
+    # Ładowanie listy szczytów z Twojego pliku dane.csv
+    df_peaks = pd.read_csv('dane.csv', sep=None, engine='python').dropna(how='all')
+    
+    # Pobieranie aktualnych postępów z bazy online
+    all_progress = get_data()
+    my_peaks = all_progress[all_progress['Użytkownik'] == st.session_state.user_id]['Szczyt'].tolist()
 
-    st.markdown(f"""
-        <div class="profile-header">
-            <div class="progress-circle">
-                <span style="font-size: 22px; font-weight: bold; color: white;">{proc}%</span>
+    st.write(f"Zaliczono: **{len(my_peaks)} / {len(df_peaks)}**")
+    st.progress(len(my_peaks)/len(df_peaks))
+
+    for index, row in df_peaks.iterrows():
+        peak_name = str(row.iloc[0]).strip()
+        is_done = peak_name in my_peaks
+        
+        # Checkbox wysyłający dane do bazy
+        check = st.checkbox(f"📍 {peak_name}", value=is_done, key=f"p_{index}")
+        
+        if check and not is_done:
+            # DODAJ DO BAZY (Tylko dla Twojego nicku)
+            new_row = pd.DataFrame([{"Użytkownik": st.session_state.user_id, "Szczyt": peak_name}])
+            updated_df = pd.concat([all_progress, new_row], ignore_index=True)
+            conn.update(data=updated_df)
+            st.rerun()
+        elif not check and is_done:
+            # USUŃ Z BAZY
+            updated_df = all_progress[~((all_progress['Użytkownik'] == st.session_state.user_id) & (all_progress['Szczyt'] == peak_name))]
+            conn.update(data=updated_df)
+            st.rerun()
+
+with tab2:
+    st.title("Ranking Wędrowców")
+    
+    # Grupowanie wyników wszystkich użytkowników
+    ranking = all_progress.groupby('Użytkownik').size().reset_index(name='Zdobyte')
+    ranking = ranking.sort_values(by='Zdobyte', ascending=False)
+    
+    for i, row in ranking.iterrows():
+        color = "#FFD700" if i == 0 else "#C0C0C0" if i == 1 else "#CD7F32" if i == 2 else "#ffffff"
+        st.markdown(f"""
+            <div class="user-card">
+                <span style="color:{color}; font-weight:bold;">#{i+1}</span> 
+                <b style="color:white; margin-left:15px;">{row['Użytkownik']}</b>
+                <span style="float:right; color:#00d4ff;">{row['Zdobyte']} szczytów</span>
             </div>
-            <div>
-                <p style="color: #888; margin:0; font-size: 14px;">Witaj z powrotem,</p>
-                <h1 style="margin:0; font-size: 24px;">{st.session_state.user_name}!</h1>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # --- ZAKŁADKI ---
-    tab1, tab2 = st.tabs(["⛰️ Twoje Szczyty", "🏆 Ranking"])
-
-    with tab1:
-        st.write("##")
-        for index, row in df.iterrows():
-            nazwa_full = str(row.iloc[0]).strip()
-            if nazwa_full.lower() == "nan" or not nazwa_full: continue
-            
-            short_name = nazwa_full.split(" w ")[0]
-            
-            # Link do Mapy.com
-            search_query = urllib.parse.quote(f"{short_name} góra Polska")
-            map_url = f"https://mapy.com/search?q={search_query}"
-
-            # Kafelek "Wypas"
-            with st.container():
-                # Układ: Checkbox z nazwą | Przycisk mapy
-                col_left, col_right = st.columns([4, 1.2])
-                
-                with col_left:
-                    # Checkbox z nazwą góry
-                    is_checked = st.checkbox(f"{short_name}", key=f"mt_{index}", value=(nazwa_full in st.session_state.zdobyte))
-                
-                with col_right:
-                    # Przycisk mapy
-                    st.markdown(f'<a href="{map_url}" target="_blank" class="map-btn">📍 MAPA</a>', unsafe_allow_html=True)
-                
-                # Obsługa logiki
-                if is_checked and nazwa_full not in st.session_state.zdobyte:
-                    st.session_state.zdobyte.append(nazwa_full)
-                    save_user_data()
-                    st.rerun()
-                elif not is_checked and nazwa_full in st.session_state.zdobyte:
-                    st.session_state.zdobyte.remove(nazwa_full)
-                    save_user_data()
-                    st.rerun()
-                
-                st.markdown("<div style='height:15px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;'></div>", unsafe_allow_html=True)
-
-    with tab2:
-        st.info("Ranking będzie dostępny wkrótce! Połączymy go z profilami Twoich znajomych.")
-
-except Exception as e:
-    st.error(f"Upewnij się, że plik dane.csv jest poprawny. Błąd: {e}")
+        """, unsafe_allow_html=True)
