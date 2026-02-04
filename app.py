@@ -2,22 +2,22 @@ import streamlit as st
 import pandas as pd
 import re
 
-# 1. Konfiguracja strony
+# 1. Ustawienia strony
 st.set_page_config(page_title="KGP Tracker Pro", page_icon="🏔️", layout="wide")
 
-# 2. Powrót do ładnego stylu PRO z pierwszej wersji (ale z małymi kafelkami)
+# 2. Stylizacja (Dashboard + Małe karty)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .metric-card { background: linear-gradient(135deg, #00b4db, #0083b0); padding: 15px; border-radius: 15px; color: white; text-align: center; }
-    .stCheckbox { background-color: #1e2130; padding: 5px 10px; border-radius: 8px; border-left: 3px solid #00d4ff; margin-bottom: 5px; }
-    .stCheckbox label p { font-size: 12px !important; color: white !important; font-weight: bold; }
-    .stImage > img { border-radius: 10px; height: 100px !important; object-fit: cover; border: 1px solid #333; }
-    h1, h3 { color: #00d4ff !important; font-family: 'Arial'; }
+    .metric-box { background: linear-gradient(135deg, #00b4db, #0083b0); padding: 15px; border-radius: 15px; color: white; text-align: center; }
+    .stCheckbox { background-color: #1e2130; padding: 8px; border-radius: 8px; border-left: 3px solid #00d4ff; margin-bottom: 15px; }
+    .stCheckbox label p { font-size: 13px !important; color: white !important; }
+    .stImage > img { border-radius: 10px; height: 110px !important; object-fit: cover; }
+    h1 { color: #00d4ff !important; font-size: 28px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Baza zdjęć
+# 3. Rozszerzona baza zdjęć (Klucze muszą być krótkie)
 foto_url = {
     "rysy": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Rysy_od_morskiego_oka.jpg/400px-Rysy_od_morskiego_oka.jpg",
     "babia": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Babia_G%C3%B3ra_widok_z_poudnia.jpg/400px-Babia_G%C3%B3ra_widok_z_poudnia.jpg",
@@ -29,24 +29,12 @@ foto_url = {
     "skrzyczne": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Skrzyczne_widok_z_poudnia.jpg/400px-Skrzyczne_widok_z_poudnia.jpg",
     "mogielica": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Mogielica_widok_z_Jasienia.jpg/400px-Mogielica_widok_z_Jasienia.jpg",
     "kopa": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Wysoka_Kopa_S01.jpg/400px-Wysoka_Kopa_S01.jpg",
-    "rudawiec": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Rudawiec_szczyt.jpg/400px-Rudawiec_szczyt.jpg",
-    "orlica": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Orlica_szczyt.jpg/400px-Orlica_szczyt.jpg",
-    "wysoka": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Wysokie_Ska%C5%82ki_Pieniny.jpg/400px-Wysokie_Ska%C5%82ki_Pieniny.jpg",
     "sowa": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Wielka_Sowa_wie%C5%BCa.jpg/400px-Wielka_Sowa_wie%C5%BCa.jpg",
-    "lackowa": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Lackowa_z_Ciechania.jpg/400px-Lackowa_z_Ciechania.jpg",
-    "kowadło": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Kowad%C5%82o_szczyt.jpg/400px-Kowad%C5%82o_szczyt.jpg",
-    "jagodna": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Jagodna_szczyt.jpg/400px-Jagodna_szczyt.jpg",
-    "skalnik": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Skalnik_szczyt.jpg/400px-Skalnik_szczyt.jpg",
-    "waligóra": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Walig%C3%B3ra_szczyt.jpg/400px-Walig%C3%B3ra_szczyt.jpg",
-    "czupel": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Czupel_widok_z_Magurki.jpg/400px-Czupel_widok_z_Magurki.jpg",
     "szczeliniec": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Szczeliniec_Wielki_S01.jpg/400px-Szczeliniec_Wielki_S01.jpg",
-    "lubomir": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Lubomir_szczyt.jpg/400px-Lubomir_szczyt.jpg",
-    "biskupia": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Biskupia_Kopa_wie%C5%BCa.jpg/400px-Biskupia_Kopa_wie%C5%BCa.jpg",
-    "chełmiec": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Che%C5%82miec_widok.jpg/400px-Che%C5%82miec_widok.jpg",
-    "kłodzka": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/K%C5%82odzka_G%C3%B3ra_szczyt.jpg/400px-K%C5%82odzka_G%C3%B3ra_szczyt.jpg",
     "ślęża": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/%C5%9Al%C4%99%C5%BCa_widok.jpg/400px-%C5%9Al%C4%99%C5%BCa_widok.jpg",
     "łysica": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/%C5%81ysica_go%C5%82oborze.jpg/400px-%C5%81ysica_go%C5%82oborze.jpg"
 }
+DOMYSLNE_FOTO = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400"
 
 @st.cache_data
 def load_data():
@@ -54,9 +42,9 @@ def load_data():
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8-sig')
     except:
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='cp1250')
-    # Czyszczenie nazw kolumn
-    df.columns = [re.sub(r'[^\w\s]', '', col).strip() for col in df.columns]
-    return df
+    # Automatyczne czyszczenie nazw kolumn i wierszy
+    df.columns = [col.strip() for col in df.columns]
+    return df.dropna(subset=[df.columns[0]]) # Usuwa puste wiersze
 
 try:
     df = load_data()
@@ -65,48 +53,49 @@ try:
     if 'zdobyte' not in st.session_state:
         st.session_state.zdobyte = []
 
-    # Statystyki w ładnych boksach
+    # Dashboard
     zdobyte_n = len(st.session_state.zdobyte)
     razem_n = len(df)
     
     c1, c2 = st.columns([1, 2])
     with c1:
-        st.markdown(f"<div class='metric-card'>ZALICZONE<br><span style='font-size:30px; font-weight:bold;'>{zdobyte_n} / {razem_n}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-box'>ZALICZONE<br><span style='font-size:28px; font-weight:bold;'>{zdobyte_n} / {razem_n}</span></div>", unsafe_allow_html=True)
     with c2:
         st.write("##")
         st.progress(zdobyte_n / razem_n if razem_n > 0 else 0)
 
     st.write("---")
 
-    # 4 KOLUMNY (Zgrabny układ)
+    # Układ 4 kolumn
     cols = st.columns(4)
 
     for index, row in df.iterrows():
-        # Pobieramy nazwę i czyścimy ją ze wszystkich dziwnych znaków i spacji
-        oryginalna_nazwa = str(row[df.columns[0]])
-        nazwa_clean = re.sub(r'[^\w\s]', ' ', oryginalna_nazwa).lower()
+        # Pobieramy nazwę szczytu (zawsze z pierwszej kolumny)
+        nazwa_full = str(row.iloc[0]).strip()
+        nazwa_clean = nazwa_full.lower()
         
         with cols[index % 4]:
-            # Szukamy zdjęcia
-            url = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400"
+            # Szukanie zdjęcia w słowniku
+            url = DOMYSLNE_FOTO
             for klucz, link in foto_url.items():
                 if klucz in nazwa_clean:
                     url = link
                     break
             
+            # WYŚWIETLANIE ZDJĘCIA (Zabezpieczone)
             st.image(url, use_container_width=True)
             
-            # Wyświetlamy tylko pierwszą część nazwy żeby było czytelnie
-            label_display = oryginalna_nazwa.split(' w ')[0].split(' (')[0]
+            # Wyświetlanie Checkboxa
+            display_name = nazwa_full.split(" w ")[0] # Skracamy nazwę do pierwszego członka
             
-            checked = st.checkbox(f"{label_display}", key=f"k_{index}", value=(oryginalna_nazwa in st.session_state.zdobyte))
-            
-            if checked and oryginalna_nazwa not in st.session_state.zdobyte:
-                st.session_state.zdobyte.append(oryginalna_nazwa)
-                st.rerun()
-            elif not checked and oryginalna_nazwa in st.session_state.zdobyte:
-                st.session_state.zdobyte.remove(oryginalna_nazwa)
-                st.rerun()
+            if st.checkbox(display_name, key=f"ch_{index}", value=(nazwa_full in st.session_state.zdobyte)):
+                if nazwa_full not in st.session_state.zdobyte:
+                    st.session_state.zdobyte.append(nazwa_full)
+                    st.rerun()
+            else:
+                if nazwa_full in st.session_state.zdobyte:
+                    st.session_state.zdobyte.remove(nazwa_full)
+                    st.rerun()
 
 except Exception as e:
-    st.error(f"Coś poszło nie tak: {e}")
+    st.error(f"Wystąpił błąd: {e}")
