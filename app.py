@@ -1,62 +1,47 @@
 import streamlit as st
 import pandas as pd
 
-# Konfiguracja strony
-st.set_page_config(page_title="Mój TopTracker", page_icon="⛰️")
+# 1. Konfiguracja "Fancy" - szeroki układ i ciemny motyw
+st.set_page_config(
+    page_title="TopTracker | KGP",
+    page_icon="🏔️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-st.title("🏔️ Moja Korona Gór Polski")
+# Stylizacja CSS dla lepszego wyglądu
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    .stCheckbox { background-color: #161b22; padding: 10px; border-radius: 5px; margin-bottom: 5px; border: 1px solid #21262d; }
+    .stProgress > div > div > div > div { background-image: linear-gradient(to right, #4facfe 0%, #00f2fe 100%); }
+    </style>
+    """, unsafe_allow_html=True)
 
-# 1. Wczytywanie Twoich danych (z uwzględnieniem średników)
+# 2. Wczytywanie danych z Twojego CSV
 @st.cache_data
 def load_peaks():
-    # Czytamy plik i usuwamy ewentualne puste wiersze na końcu
     df = pd.read_csv("dane.csv", sep=";")
     return df.dropna(subset=['Szczyt'])
 
-try:
-    df_peaks = load_peaks()
-except Exception:
-    st.error("Problem z plikiem dane.csv. Sprawdź, czy są w nim średniki!")
-    st.stop()
+df_peaks = load_peaks()
+total_peaks = len(df_peaks)
 
-# 2. Zarządzanie stanem (Twoje postępy w sesji)
+# 3. Zarządzanie postępem (Session State)
 if 'zaliczone' not in st.session_state:
-    # Tutaj możesz wpisać na sztywno nazwy szczytów, które już masz zdobyte
-    # np. st.session_state.zaliczone = ["Rysy w Tatrach", "Turbacz w Gorcach"]
     st.session_state.zaliczone = []
 
-# 3. Interfejs i statystyki
-progress = len(st.session_state.zaliczone)
-total = len(df_peaks)
+# Nagłówek
+st.title("🏔️ Korona Gór Polski - Twój Progress")
+st.markdown("---")
 
-col1, col2 = st.columns(2)
-col1.metric("Zdobyte", f"{progress} / {total}")
-col2.metric("Do końca", f"{total - progress}")
+# 4. Sekcja Statystyk (Dashboard)
+progress_count = len(st.session_state.zaliczone)
+progress_percent = int((progress_count / total_peaks) * 100) if total_peaks > 0 else 0
 
-st.progress(progress / total if total > 0 else 0)
-st.divider()
-
-# 4. Lista szczytów do klikania
-st.subheader("Lista Twoich szczytów:")
-
-for index, row in df_peaks.iterrows():
-    peak_name = row['Szczyt']
-    wysokosc = row['Wysokość mnp']
-    
-    # Sprawdzamy czy szczyt jest już na liście zaliczonych
-    is_checked = peak_name in st.session_state.zaliczone
-    
-    # Checkbox dla każdego szczytu
-    if st.checkbox(f"📍 {peak_name} ({wysokosc} m n.p.m.)", value=is_checked, key=f"peak_{index}"):
-        if peak_name not in st.session_state.zaliczone:
-            st.session_state.zaliczone.append(peak_name)
-            st.rerun()
-    else:
-        if peak_name in st.session_state.zaliczone:
-            st.session_state.zaliczone.remove(peak_name)
-            st.rerun()
-
-# Przycisk resetu
-if st.sidebar.button("Resetuj wszystkie postępy"):
-    st.session_state.zaliczone = []
-    st.rerun()
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Zdobyte Szczyty", f"{progress_count} / {total_peaks}")
+with col2:
+    st.metric("
