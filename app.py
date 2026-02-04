@@ -7,11 +7,14 @@ st.title("🏔️ Moja Korona Gór Polski")
 
 @st.cache_data
 def load_data():
-    # Próbujemy odczytać plik z automatycznym wykrywaniem separatora (przecinek lub średnik)
     try:
-        df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8')
+        # 'utf-8-sig' automatycznie ignoruje ten błąd \ufeff
+        df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8-sig')
     except:
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='cp1250')
+    
+    # Dodatkowo na wszelki wypadek czyścimy nazwy kolumn z ukrytych znaków
+    df.columns = df.columns.str.replace('^\\ufeff', '', regex=True).str.strip()
     return df
 
 try:
@@ -48,3 +51,4 @@ try:
 
 except Exception as e:
     st.error(f"Problem z plikiem: {e}")
+
