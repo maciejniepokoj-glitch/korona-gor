@@ -1,23 +1,23 @@
 import streamlit as st
 import pandas as pd
+import re
 
 # 1. Konfiguracja strony
 st.set_page_config(page_title="KGP Tracker Pro", page_icon="🏔️", layout="wide")
 
-# 2. Stylizacja: Bardzo małe kafelki i zgrabne zdjęcia
+# 2. Powrót do ładnego stylu PRO z pierwszej wersji (ale z małymi kafelkami)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    [data-testid="stMetricValue"] { font-size: 20px !important; color: #00d4ff; }
-    .stCheckbox { background-color: #1e2130; padding: 3px 8px; border-radius: 4px; margin-top: -10px; }
-    .stCheckbox label p { font-size: 11px !important; color: #cfd0d6; }
-    .stImage > img { border-radius: 6px; height: 90px !important; object-fit: cover; }
-    div[data-testid="stColumn"] { padding: 1px !important; }
-    hr { margin: 10px 0px; }
+    .metric-card { background: linear-gradient(135deg, #00b4db, #0083b0); padding: 15px; border-radius: 15px; color: white; text-align: center; }
+    .stCheckbox { background-color: #1e2130; padding: 5px 10px; border-radius: 8px; border-left: 3px solid #00d4ff; margin-bottom: 5px; }
+    .stCheckbox label p { font-size: 12px !important; color: white !important; font-weight: bold; }
+    .stImage > img { border-radius: 10px; height: 100px !important; object-fit: cover; border: 1px solid #333; }
+    h1, h3 { color: #00d4ff !important; font-family: 'Arial'; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Baza zdjęć (skrócone klucze dla lepszego dopasowania)
+# 3. Baza zdjęć
 foto_url = {
     "rysy": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Rysy_od_morskiego_oka.jpg/400px-Rysy_od_morskiego_oka.jpg",
     "babia": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Babia_G%C3%B3ra_widok_z_poudnia.jpg/400px-Babia_G%C3%B3ra_widok_z_poudnia.jpg",
@@ -54,54 +54,21 @@ def load_data():
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8-sig')
     except:
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='cp1250')
-    df.columns = df.columns.str.replace('^\\ufeff', '', regex=True).str.strip()
+    # Czyszczenie nazw kolumn
+    df.columns = [re.sub(r'[^\w\s]', '', col).strip() for col in df.columns]
     return df
 
 try:
     df = load_data()
-    st.markdown("<h3 style='text-align: center; color: white;'>🏔️ MÓJ TRACKER KGP</h3>", unsafe_allow_html=True)
+    st.markdown("<h1>🏔️ KGP TRACKER PRO</h1>", unsafe_allow_html=True)
     
     if 'zdobyte' not in st.session_state:
         st.session_state.zdobyte = []
 
-    # Mini statystyki w jednej linii
+    # Statystyki w ładnych boksach
     zdobyte_n = len(st.session_state.zdobyte)
     razem_n = len(df)
     
-    s1, s2 = st.columns([1, 3])
-    s1.metric("Wynik", f"{zdobyte_n}/{razem_n}")
-    s2.progress(zdobyte_n / razem_n if razem_n > 0 else 0)
-
-    st.write("---")
-
-    # 5 KOLUMN (Bardzo małe kafelki)
-    cols = st.columns(5)
-
-    for index, row in df.iterrows():
-        nazwa_z_pliku = str(row['Szczyt'])
-        nazwa_do_szukania = nazwa_z_pliku.lower()
-        
-        with cols[index % 5]:
-            # Inteligentne dopasowanie zdjęcia
-            url = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400" # domyślne
-            for klucz, link in foto_url.items():
-                if klucz in nazwa_do_szukania:
-                    url = link
-                    break
-            
-            st.image(url, use_container_width=True)
-            
-            # Skracamy nazwę do wyświetlenia na kafelku (tylko pierwsze 2 wyrazy)
-            krotka_nazwa = " ".join(nazwa_z_pliku.split()[:2])
-            
-            checked = st.checkbox(f"{krotka_nazwa}", key=f"c_{index}", value=(nazwa_z_pliku in st.session_state.zdobyte))
-            
-            if checked and nazwa_z_pliku not in st.session_state.zdobyte:
-                st.session_state.zdobyte.append(nazwa_z_pliku)
-                st.rerun()
-            elif not checked and nazwa_z_pliku in st.session_state.zdobyte:
-                st.session_state.zdobyte.remove(nazwa_z_pliku)
-                st.rerun()
-
-except Exception as e:
-    st.error(f"Błąd danych: {e}")
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        st.markdown(f"<div class='metric-card'>Z
