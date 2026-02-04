@@ -1,71 +1,50 @@
 import streamlit as st
 import pandas as pd
 
-# Konfiguracja strony
-st.set_page_config(page_title="Korona Gór Polski - Tracker", page_icon="🏔️", layout="wide")
+st.set_page_config(page_title="Korona Gór Polski", page_icon="🏔️")
 
-# Stylizacja CSS dla lepszego wyglądu
-st.markdown("""
-    <style>
-    .stProgress > div > div > div > div { background-color: #00d4ff; }
-    .main { background-color: #0e1117; color: white; }
-    </style>
-    """, unsafe_allow_html=True)
+st.title("🏔️ Moja Korona Gór Polski")
 
-st.title("🏔️ Korona Gór Polski - Twój Profil")
-
-# Ładowanie danych
 @st.cache_data
 def load_data():
-    df = pd.read_csv('dane.csv')
+    # Próbujemy odczytać plik z automatycznym wykrywaniem separatora (przecinek lub średnik)
+    try:
+        df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8')
+    except:
+        df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='cp1250')
     return df
 
 try:
     df = load_data()
     
-    # --- PROFIL UŻYTKOWNIKA ---
-    with st.sidebar:
-        st.header("👤 Twój Profil")
-        user_name = st.text_input("Twoje Imię/Nick", "Wędrowiec")
-        st.write(f"Witaj, **{user_name}**!")
-        st.divider()
-        st.info("Twoje postępy są zapisywane w sesji przeglądarki.")
-
-    # --- LOGIKA POSTĘPU ---
-    st.subheader(f"Statystyki: {user_name}")
+    # Sprawdzamy czy kolumna 'Szczyt' istnieje (usuwamy spacje z nazw kolumn dla pewności)
+    df.columns = df.columns.str.strip()
     
-    # Tworzymy listę zdobytych szczytów (w wersji demo oparte o session_state)
-    if 'acquired' not in st.session_state:
-        st.session_state.acquired = []
+    if 'Szczyt' not in df.columns:
+        st.error(f"Nie znaleziono kolumny 'Szczyt'. Dostępne kolumny to: {list(df.columns)}")
+        st.info("Otwórz plik CSV w notatniku i upewnij się, że pierwszy wiersz zawiera nazwę Szczyt")
+    else:
+        # Logika zdobywania szczytów
+        if 'zdobyte' not in st.session_state:
+            st.session_state.zdobyte = []
 
-    progress = len(st.session_state.acquired) / len(df)
-    st.progress(progress)
-    st.write(f"Zdobyłeś już **{len(st.session_state.acquired)}** z **{len(df)}** szczytów!")
+        # Pasek postępu
+        procent = len(st.session_state.zdobyte) / len(df)
+        st.metric("Twój wynik", f"{len(st.session_state.zdobyte)} / {len(df)}")
+        st.progress(procent)
 
-    # --- LISTA SZCZYTÓW ---
-    col1, col2 = st.columns(2)
-
-    for index, row in df.iterrows():
-        # Decydujemy w której kolumnie wyświetlić kartę
-        target_col = col1 if index % 2 == 0 else col2
-        
-        with target_col:
-            with st.expander(f"⛰️ {row['Szczyt']} ({row['Wysokość']} m n.p.m.)"):
-                st.write(f"**Pasmo:** {row['Pasmo górskie']}")
-                
-                is_checked = row['Szczyt'] in st.session_state.acquired
-                if st.checkbox("Zdobyty!", key=row['Szczyt'], value=is_checked):
-                    if row['Szczyt'] not in st.session_state.acquired:
-                        st.session_state.acquired.append(row['Szczyt'])
-                        st.rerun()
-                elif row['Szczyt'] in st.session_state.acquired:
-                    st.session_state.acquired.remove(row['Szczyt'])
-                    st.rerun()
-
-    # --- PORÓWNYWANIE (DLA ZNAJOMYCH) ---
-    st.divider()
-    if st.button("🔗 Wygeneruj link do udostępnienia (Sim)"):
-        st.success("Skopiowano link do Twojego profilu! (W pełnej wersji link zawierałby ID Twojej bazy danych)")
+        # Lista szczytów
+        for index, row in df.iterrows():
+            nazwa_szczytu = row['Szczyt']
+            wysokosc = row['Wysokość'] if 'Wysokość' in df.columns else ""
+            
+            label = f"{nazwa_szczytu} ({wysokosc} m n.p.m.)"
+            
+            # Checkbox
+            checked = st.checkbox(label, key=f"check_{index}")
+            if checked:
+                if nazwa_szczytu not in st.session_state.zdobyte:
+                    st.session_state.zdobyte.append(nazwa_szczytu)
 
 except Exception as e:
-    st.error(f"Upewnij się, że plik CSV znajduje się w tym samym folderze co skrypt! Błąd: {e}")
+    st.error(f"Problem z plikiem: {e}")
