@@ -1,92 +1,89 @@
 import streamlit as st
 import pandas as pd
+import json
+import os
 
 # 1. Konfiguracja strony
-st.set_page_config(page_title="TopTracker KGP", page_icon="🏔️", layout="centered")
+st.set_page_config(page_title="KGP Tracker Pro", page_icon="🏔️", layout="centered")
 
-# 2. Stylizacja CSS - Efekt szklanych kafelków i okrągłych zdjęć
+# --- FUNKCJE ZAPISU I ODCZYTU (Efekt Wow: Dane nie znikają!) ---
+SAVE_FILE = "postepy.json"
+
+def load_progress():
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_progress(zdobyte):
+    with open(SAVE_FILE, "w") as f:
+        json.dump(zdobyte, f)
+
+# 2. Stylizacja CSS (Design Premium)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
     
-    /* Okrągły licznik na górze */
-    .circle-stat {
-        border: 6px solid #00d4ff;
-        border-radius: 50%;
-        width: 140px;
-        height: 140px;
-        margin: 0 auto;
+    /* Nagłówek */
+    .main-title {
+        text-align: center;
+        color: #00d4ff;
+        font-family: 'Arial Black';
+        font-size: 40px;
+        margin-bottom: 30px;
+        text-shadow: 0 0 15px rgba(0,212,255,0.4);
+    }
+
+    /* Kafelki statystyk */
+    .stat-container {
         display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        background: radial-gradient(circle, #1e2130 0%, #0e1117 100%);
-        box-shadow: 0 0 25px rgba(0,212,255,0.2);
+        justify-content: space-between;
+        gap: 15px;
+        margin-bottom: 30px;
     }
-
-    /* Stylizacja pojedynczego wiersza (kafelka) */
-    .mountain-row {
-        background-color: #1e2130;
-        border-radius: 20px;
-        padding: 10px 15px;
-        margin-bottom: 10px;
+    .stat-card {
+        background: linear-gradient(135deg, #1e2130 0%, #141722 100%);
         border: 1px solid #2d3142;
+        padding: 20px;
+        border-radius: 20px;
+        text-align: center;
+        flex: 1;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    }
+    .stat-val { font-size: 24px; font-weight: bold; color: #00d4ff; }
+    .stat-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Kafelki Szczytów */
+    .stCheckbox {
+        background: #1e2130;
+        border: 1px solid #2d3142;
+        padding: 20px 25px !important;
+        border-radius: 20px !important;
+        margin-bottom: 12px !important;
+        transition: all 0.3s ease;
+    }
+    .stCheckbox:hover {
+        border-color: #00d4ff;
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,212,255,0.1);
     }
     
-    /* Okrągłe zdjęcie */
-    .stImage > img {
-        border-radius: 50% !important;
-        width: 60px !important;
-        height: 60px !important;
-        object-fit: cover;
-        border: 2px solid #00d4ff;
+    /* Tekst checkboxa */
+    .stCheckbox label p {
+        color: white !important;
+        font-weight: 600 !important;
+        font-size: 16px !important;
     }
 
-    .m-title { color: white; font-weight: bold; font-size: 16px; margin-bottom: 0px; }
-    .m-desc { color: #888; font-size: 12px; }
-    
-    /* Ukrycie labeli checkboxa dla czystego wyglądu */
-    .stCheckbox label { display: none; }
-    
-    hr { border-color: #2d3142; margin: 15px 0; }
-    h3 { color: #00d4ff !important; letter-spacing: 1px; }
+    /* Ukrycie domyślnego menu Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Rozszerzona baza realnych zdjęć (Klucze dopasowane do Twojego pliku)
-foto_url = {
-    "rysy": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Rysy_od_morskiego_oka.jpg/200px-Rysy_od_morskiego_oka.jpg",
-    "babia": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Babia_G%C3%B3ra_widok_z_poudnia.jpg/200px-Babia_G%C3%B3ra_widok_z_poudnia.jpg",
-    "śnieżka": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Sniezka_z_oddali.jpg/200px-Sniezka_z_oddali.jpg",
-    "śnieżnik": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/%C5%9Anie%C5%BCnik_K%C5%82odzki_S01.jpg/200px-%C5%9Anie%C5%BCnik_K%C5%82odzki_S01.jpg",
-    "tarnica": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Tarnica_Bieszczady.jpg/200px-Tarnica_Bieszczady.jpg",
-    "turbacz": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Turbacz_szczyt.jpg/200px-Turbacz_szczyt.jpg",
-    "radziejowa": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Radziejowa_szczyt.jpg/200px-Radziejowa_szczyt.jpg",
-    "skrzyczne": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Skrzyczne_widok_z_poudnia.jpg/200px-Skrzyczne_widok_z_poudnia.jpg",
-    "mogielica": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Mogielica_widok_z_Jasienia.jpg/200px-Mogielica_widok_z_Jasienia.jpg",
-    "wysoka kopa": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Wysoka_Kopa_S01.jpg/200px-Wysoka_Kopa_S01.jpg",
-    "rudawiec": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Rudawiec_szczyt.jpg/200px-Rudawiec_szczyt.jpg",
-    "orlica": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Orlica_szczyt.jpg/200px-Orlica_szczyt.jpg",
-    "wysoka": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Wysokie_Ska%C5%82ki_Pieniny.jpg/200px-Wysokie_Ska%C5%82ki_Pieniny.jpg",
-    "wielka sowa": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Wielka_Sowa_wie%C5%BCa.jpg/200px-Wielka_Sowa_wie%C5%BCa.jpg",
-    "lackowa": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Lackowa_z_Ciechania.jpg/200px-Lackowa_z_Ciechania.jpg",
-    "kowadło": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Kowad%C5%82o_szczyt.jpg/200px-Kowad%C5%82o_szczyt.jpg",
-    "jagodna": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Jagodna_szczyt.jpg/200px-Jagodna_szczyt.jpg",
-    "skalnik": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Skalnik_szczyt.jpg/200px-Skalnik_szczyt.jpg",
-    "waligóra": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Walig%C3%B3ra_szczyt.jpg/200px-Walig%C3%B3ra_szczyt.jpg",
-    "czupel": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Czupel_widok_z_Magurki.jpg/200px-Czupel_widok_z_Magurki.jpg",
-    "szczeliniec": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Szczeliniec_Wielki_S01.jpg/200px-Szczeliniec_Wielki_S01.jpg",
-    "lubomir": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Lubomir_szczyt.jpg/200px-Lubomir_szczyt.jpg",
-    "biskupia": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Biskupia_Kopa_wie%C5%BCa.jpg/200px-Biskupia_Kopa_wie%C5%BCa.jpg",
-    "chełmiec": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Che%C5%82miec_widok.jpg/200px-Che%C5%82miec_widok.jpg",
-    "kłodzka góra": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/K%C5%82odzka_G%C3%B3ra_szczyt.jpg/200px-K%C5%82odzka_G%C3%B3ra_szczyt.jpg",
-    "ślęża": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/%C5%9Al%C4%99%C5%BCa_widok.jpg/200px-%C5%9Al%C4%99%C5%BCa_widok.jpg",
-    "łysica": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/%C5%81ysica_go%C5%82oborze.jpg/200px-%C5%81ysica_go%C5%82oborze.jpg"
-}
-DEF_IMG = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=200"
-
+# 3. Ładowanie danych
 @st.cache_data
-def load_data():
+def load_mountain_data():
     try:
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8-sig')
     except:
@@ -94,67 +91,53 @@ def load_data():
     return df.dropna(how='all')
 
 try:
-    df = load_data()
-    st.markdown("<h3>🏔️ TopTracker KGP</h3>", unsafe_allow_html=True)
+    df = load_mountain_data()
     
+    # Inicjalizacja stanu z zapisanego pliku
     if 'zdobyte' not in st.session_state:
-        st.session_state.zdobyte = []
+        st.session_state.zdobyte = load_progress()
 
-    # 4. OKRĄGŁY WYKRES POSTĘPU
+    st.markdown("<div class='main-title'>KGP TRACKER PRO</div>", unsafe_allow_html=True)
+
+    # 4. DASHBOARD STATYSTYK
     zdobyte_n = len(st.session_state.zdobyte)
     razem_n = len(df)
     procent = int((zdobyte_n / razem_n) * 100) if razem_n > 0 else 0
-    
+
     st.markdown(f"""
-        <div class="circle-stat">
-            <div style="font-size: 28px; font-weight: bold; color: white;">{procent}%</div>
-            <div style="font-size: 10px; color: #00d4ff; text-transform: uppercase;">Zrobione</div>
+        <div class="stat-container">
+            <div class="stat-card"><div class="stat-label">Zaliczone</div><div class="stat-val">🏔️ {zdobyte_n}</div></div>
+            <div class="stat-card"><div class="stat-label">Progres</div><div class="stat-val">📈 {procent}%</div></div>
+            <div class="stat-card"><div class="stat-label">Pozostało</div><div class="stat-val">🎯 {razem_n - zdobyte_n}</div></div>
         </div>
     """, unsafe_allow_html=True)
 
+    st.progress(zdobyte_n / razem_n if razem_n > 0 else 0)
     st.write("##")
-    
-    # 5. LISTA SZCZYTÓW
-    st.markdown("<p style='text-align: center; color: #888;'>Twoja lista wyzwań</p>", unsafe_allow_html=True)
+
+    # 5. LISTA SZCZYTÓW (Elegancka lista)
+    st.markdown("<h3 style='color: white; font-size: 18px;'>Lista Wyzwań</h3>", unsafe_allow_html=True)
 
     for index, row in df.iterrows():
         nazwa_full = str(row.iloc[0]).strip()
-        nazwa_low = nazwa_full.lower()
         
-        # Kontener kafelka
-        with st.container():
-            col_img, col_txt, col_chk = st.columns([1, 4, 1])
-            
-            # Kolumna 1: Okrągłe zdjęcie
-            url = DEF_IMG
-            for k, v in foto_url.items():
-                if k in nazwa_low:
-                    url = v
-                    break
-            col_img.image(url)
-            
-            # Kolumna 2: Tekst
-            clean_name = nazwa_full.split(" w ")[0]
-            col_txt.markdown(f"""
-                <div style="padding-top: 10px;">
-                    <div class="m-title">{clean_name}</div>
-                    <div class="m-desc">Polska • Korona Gór Polski</div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Kolumna 3: Checkbox
-            with col_chk:
-                st.write("##") # Obniżenie checkboxa
-                checked = st.checkbox("", key=f"f_{index}", value=(nazwa_full in st.session_state.zdobyte))
-                
-                if checked and nazwa_full not in st.session_state.zdobyte:
-                    st.session_state.zdobyte.append(nazwa_full)
-                    st.rerun()
-                elif not checked and nazwa_full in st.session_state.zdobyte:
-                    st.session_state.zdobyte.remove(nazwa_full)
-                    st.rerun()
-            
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        # Wyświetlamy tylko główną nazwę góry
+        short_name = nazwa_full.split(" w ")[0].split("(")[0]
+        
+        # Checkbox jako kafelek
+        if st.checkbox(f"⛰️  {short_name}", key=f"mtn_{index}", value=(nazwa_full in st.session_state.zdobyte)):
+            if nazwa_full not in st.session_state.zdobyte:
+                st.session_state.zdobyte.append(nazwa_full)
+                save_progress(st.session_state.zdobyte) # Zapis do pliku
+                st.rerun()
+        else:
+            if nazwa_full in st.session_state.zdobyte:
+                st.session_state.zdobyte.remove(nazwa_full)
+                save_progress(st.session_state.zdobyte) # Zapis do pliku
+                st.rerun()
+
+    # Stopka
+    st.markdown("<div style='text-align: center; color: #444; margin-top: 50px; font-size: 12px;'>TopTracker v3.0 • Premium Edition</div>", unsafe_allow_html=True)
 
 except Exception as e:
-    st.error(f"Wystąpił błąd: {e}")
+    st.error(f"⚠️ Błąd aplikacji: {e}")
