@@ -4,8 +4,8 @@ import json
 import os
 import urllib.parse
 
-# 1. Konfiguracja pod Mobile
-st.set_page_config(page_title="KGP Tracker Pro", page_icon="🏔️", layout="centered")
+# 1. Konfiguracja strony
+st.set_page_config(page_title="TopTracker KGP", page_icon="🏔️", layout="centered")
 
 # --- SYSTEM ZAPISU ---
 SAVE_FILE = "postepy.json"
@@ -26,72 +26,117 @@ init_data = load_user_data()
 if 'user_name' not in st.session_state: st.session_state.user_name = init_data["user_name"]
 if 'zdobyte' not in st.session_state: st.session_state.zdobyte = init_data["zdobyte"]
 
-# 2. Stylizacja CSS (Efekt Appki)
+# 2. Stylizacja "Wypas" (CSS)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .app-card {
-        background: rgba(30, 33, 48, 0.7); backdrop-filter: blur(10px);
-        border-radius: 20px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;
+    
+    /* Nagłówek profilu */
+    .profile-header {
+        display: flex; align-items: center; gap: 20px;
+        padding: 20px; background: rgba(255,255,255,0.03);
+        border-radius: 25px; border: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 25px;
     }
-    .map-link {
-        text-decoration: none; font-size: 20px; padding: 8px 12px;
-        background: #4caf50; color: white !important; border-radius: 12px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+
+    /* Okrągły postęp w stylu Apple Watch / Garmin */
+    .progress-circle {
+        border: 6px solid #00d4ff; border-radius: 50%;
+        width: 100px; height: 100px;
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: center;
+        box-shadow: 0 0 20px rgba(0,212,255,0.2);
     }
-    .mountain-row { border-bottom: 1px solid rgba(255,255,255,0.05); padding: 15px 0; }
+
+    /* Kafelki szczytów */
+    .mountain-card {
+        background: #1e2130; border-radius: 20px;
+        padding: 15px 20px; margin-bottom: 12px;
+        border: 1px solid #2d3142;
+        transition: 0.3s;
+    }
+    
+    .stCheckbox { 
+        background: transparent !important; padding: 0 !important; 
+    }
+    
+    /* Ukrycie labela Streamlit i stylizacja tekstu */
+    .stCheckbox label p {
+        color: white !important; font-size: 17px !important; font-weight: 600 !important;
+    }
+
+    .map-btn {
+        background: #4caf50; color: white !important;
+        padding: 8px 15px; border-radius: 12px;
+        text-decoration: none; font-size: 14px; font-weight: bold;
+    }
+    
+    h1, h2 { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Logika i Dane
+# 3. Logika Danych
 try:
-    # Agresywne usuwanie 'nan' (puste wiersze i kolumny)
     df = pd.read_csv('dane.csv', sep=None, engine='python', skip_blank_lines=True).dropna(how='all')
     
-    st.markdown(f"<h1>Witaj, {st.session_state.user_name}! 🏔️</h1>", unsafe_allow_html=True)
-
-    # Dashboard
+    # --- NAGŁÓWEK ---
     z_n, r_n = len(st.session_state.zdobyte), len(df)
     proc = int((z_n/r_n)*100) if r_n > 0 else 0
+
     st.markdown(f"""
-        <div class="app-card" style="text-align: center;">
-            <div style="font-size: 42px; font-weight: bold; color: #00d4ff;">{proc}%</div>
-            <div style="color: white; font-size: 14px; letter-spacing: 1px;">TWOJA KORONA GÓR POLSKI</div>
+        <div class="profile-header">
+            <div class="progress-circle">
+                <span style="font-size: 22px; font-weight: bold; color: white;">{proc}%</span>
+            </div>
+            <div>
+                <p style="color: #888; margin:0; font-size: 14px;">Witaj z powrotem,</p>
+                <h1 style="margin:0; font-size: 24px;">{st.session_state.user_name}!</h1>
+            </div>
         </div>
     """, unsafe_allow_html=True)
 
-    # Lista szczytów
-    st.write("### Szlaki i Szczyty")
-    for index, row in df.iterrows():
-        # Pobranie czystej nazwy
-        nazwa_full = str(row.iloc[0]).strip()
-        if nazwa_full.lower() == "nan" or not nazwa_full: continue
-        
-        short_name = nazwa_full.split(" w ")[0]
-        
-        # Link do Mapy.com (wyszukiwanie konkretnej góry)
-        search_query = urllib.parse.quote(f"{short_name} góra Polska")
-        map_url = f"https://mapy.com/search?q={search_query}"
+    # --- ZAKŁADKI ---
+    tab1, tab2 = st.tabs(["⛰️ Twoje Szczyty", "🏆 Ranking"])
 
-        # Layout wiersza (Checkbox | Nazwa | Mapa)
-        with st.container():
-            c1, c2, c3 = st.columns([1, 4, 1])
+    with tab1:
+        st.write("##")
+        for index, row in df.iterrows():
+            nazwa_full = str(row.iloc[0]).strip()
+            if nazwa_full.lower() == "nan" or not nazwa_full: continue
             
-            is_checked = c1.checkbox("", key=f"c_{index}", value=(nazwa_full in st.session_state.zdobyte))
-            c2.markdown(f"**{short_name}**<br><small style='color:#777'>Polska</small>", unsafe_allow_html=True)
-            c3.markdown(f' <a href="{map_url}" target="_blank" class="map-link">📍</a>', unsafe_allow_html=True)
+            short_name = nazwa_full.split(" w ")[0]
             
-            st.markdown("<div class='mountain-row'></div>", unsafe_allow_html=True)
+            # Link do Mapy.com
+            search_query = urllib.parse.quote(f"{short_name} góra Polska")
+            map_url = f"https://mapy.com/search?q={search_query}"
 
-        # Obsługa zaznaczania i zapisu
-        if is_checked and nazwa_full not in st.session_state.zdobyte:
-            st.session_state.zdobyte.append(nazwa_full)
-            save_user_data()
-            st.rerun()
-        elif not is_checked and nazwa_full in st.session_state.zdobyte:
-            st.session_state.zdobyte.remove(nazwa_full)
-            save_user_data()
-            st.rerun()
+            # Kafelek "Wypas"
+            with st.container():
+                # Układ: Checkbox z nazwą | Przycisk mapy
+                col_left, col_right = st.columns([4, 1.2])
+                
+                with col_left:
+                    # Checkbox z nazwą góry
+                    is_checked = st.checkbox(f"{short_name}", key=f"mt_{index}", value=(nazwa_full in st.session_state.zdobyte))
+                
+                with col_right:
+                    # Przycisk mapy
+                    st.markdown(f'<a href="{map_url}" target="_blank" class="map-btn">📍 MAPA</a>', unsafe_allow_html=True)
+                
+                # Obsługa logiki
+                if is_checked and nazwa_full not in st.session_state.zdobyte:
+                    st.session_state.zdobyte.append(nazwa_full)
+                    save_user_data()
+                    st.rerun()
+                elif not is_checked and nazwa_full in st.session_state.zdobyte:
+                    st.session_state.zdobyte.remove(nazwa_full)
+                    save_user_data()
+                    st.rerun()
+                
+                st.markdown("<div style='height:15px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+
+    with tab2:
+        st.info("Ranking będzie dostępny wkrótce! Połączymy go z profilami Twoich znajomych.")
 
 except Exception as e:
-    st.error(f"Coś nie tak z danymi: {e}")
+    st.error(f"Upewnij się, że plik dane.csv jest poprawny. Błąd: {e}")
