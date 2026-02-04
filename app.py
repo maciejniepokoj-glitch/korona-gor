@@ -1,23 +1,20 @@
 import streamlit as st
 import pandas as pd
-import re
 
-# 1. Ustawienia strony
-st.set_page_config(page_title="KGP Tracker Pro", page_icon="🏔️", layout="wide")
+# 1. Konfiguracja i Twój ulubiony styl PRO
+st.set_page_config(page_title="Korona Gór Polski", page_icon="🏔️", layout="wide")
 
-# 2. Stylizacja (Dashboard + Małe karty)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .metric-box { background: linear-gradient(135deg, #00b4db, #0083b0); padding: 15px; border-radius: 15px; color: white; text-align: center; }
-    .stCheckbox { background-color: #1e2130; padding: 8px; border-radius: 8px; border-left: 3px solid #00d4ff; margin-bottom: 15px; }
-    .stCheckbox label p { font-size: 13px !important; color: white !important; }
-    .stImage > img { border-radius: 10px; height: 110px !important; object-fit: cover; }
-    h1 { color: #00d4ff !important; font-size: 28px !important; }
+    .stCheckbox { background-color: #1e2130; padding: 15px; border-radius: 10px; border-left: 5px solid #00d4ff; margin-bottom: 20px; }
+    .metric-card { background: linear-gradient(135deg, #00b4db, #0083b0); padding: 20px; border-radius: 20px; color: white; text-align: center; margin-bottom: 20px; }
+    h1 { color: #00d4ff !important; }
+    img { border-radius: 10px; object-fit: cover; height: 150px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Rozszerzona baza zdjęć (Klucze muszą być krótkie)
+# 2. Baza zdjęć - słowa klucze (małymi literami)
 foto_url = {
     "rysy": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Rysy_od_morskiego_oka.jpg/400px-Rysy_od_morskiego_oka.jpg",
     "babia": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Babia_G%C3%B3ra_widok_z_poudnia.jpg/400px-Babia_G%C3%B3ra_widok_z_poudnia.jpg",
@@ -34,7 +31,6 @@ foto_url = {
     "ślęża": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/%C5%9Al%C4%99%C5%BCa_widok.jpg/400px-%C5%9Al%C4%99%C5%BCa_widok.jpg",
     "łysica": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/%C5%81ysica_go%C5%82oborze.jpg/400px-%C5%81ysica_go%C5%82oborze.jpg"
 }
-DOMYSLNE_FOTO = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400"
 
 @st.cache_data
 def load_data():
@@ -42,60 +38,54 @@ def load_data():
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8-sig')
     except:
         df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='cp1250')
-    # Automatyczne czyszczenie nazw kolumn i wierszy
-    df.columns = [col.strip() for col in df.columns]
-    return df.dropna(subset=[df.columns[0]]) # Usuwa puste wiersze
+    df.columns = df.columns.str.strip()
+    return df
 
 try:
     df = load_data()
-    st.markdown("<h1>🏔️ KGP TRACKER PRO</h1>", unsafe_allow_html=True)
+    st.title("🏔️ Moja Korona Gór Polski")
     
     if 'zdobyte' not in st.session_state:
         st.session_state.zdobyte = []
 
-    # Dashboard
+    # Statystyki (Układ, który Ci się podobał)
     zdobyte_n = len(st.session_state.zdobyte)
     razem_n = len(df)
-    
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        st.markdown(f"<div class='metric-box'>ZALICZONE<br><span style='font-size:28px; font-weight:bold;'>{zdobyte_n} / {razem_n}</span></div>", unsafe_allow_html=True)
-    with c2:
-        st.write("##")
-        st.progress(zdobyte_n / razem_n if razem_n > 0 else 0)
+    procent = int((zdobyte_n / razem_n) * 100) if razem_n > 0 else 0
+
+    col_stat1, col_stat2 = st.columns(2)
+    with col_stat1:
+        st.markdown(f"<div class='metric-card'><h3>ZDOBYTE</h3><h2>{zdobyte_n} / {razem_n}</h2></div>", unsafe_allow_html=True)
+    with col_stat2:
+        st.markdown(f"<div class='metric-card'><h3>POSTĘP</h3><h2>{procent}%</h2></div>", unsafe_allow_html=True)
 
     st.write("---")
 
-    # Układ 4 kolumn
-    cols = st.columns(4)
+    # Karty szczytów (2 w rzędzie - stabilne i czytelne)
+    col1, col2 = st.columns(2)
 
     for index, row in df.iterrows():
-        # Pobieramy nazwę szczytu (zawsze z pierwszej kolumny)
-        nazwa_full = str(row.iloc[0]).strip()
-        nazwa_clean = nazwa_full.lower()
+        nazwa_full = str(row.iloc[0]) # Bierze nazwę z pierwszej kolumny
+        nazwa_lower = nazwa_full.lower()
         
-        with cols[index % 4]:
-            # Szukanie zdjęcia w słowniku
-            url = DOMYSLNE_FOTO
-            for klucz, link in foto_url.items():
-                if klucz in nazwa_clean:
-                    url = link
+        with (col1 if index % 2 == 0 else col2):
+            # DOPASOWANIE ZDJĘCIA
+            img_url = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400"
+            for klucz in foto_url:
+                if klucz in nazwa_lower:
+                    img_url = foto_url[klucz]
                     break
             
-            # WYŚWIETLANIE ZDJĘCIA (Zabezpieczone)
-            st.image(url, use_container_width=True)
+            st.image(img_url, use_container_width=True)
             
-            # Wyświetlanie Checkboxa
-            display_name = nazwa_full.split(" w ")[0] # Skracamy nazwę do pierwszego członka
+            checked = st.checkbox(f"{nazwa_full}", key=f"kgp_{index}", value=(nazwa_full in st.session_state.zdobyte))
             
-            if st.checkbox(display_name, key=f"ch_{index}", value=(nazwa_full in st.session_state.zdobyte)):
-                if nazwa_full not in st.session_state.zdobyte:
-                    st.session_state.zdobyte.append(nazwa_full)
-                    st.rerun()
-            else:
-                if nazwa_full in st.session_state.zdobyte:
-                    st.session_state.zdobyte.remove(nazwa_full)
-                    st.rerun()
+            if checked and nazwa_full not in st.session_state.zdobyte:
+                st.session_state.zdobyte.append(nazwa_full)
+                st.rerun()
+            elif not checked and nazwa_full in st.session_state.zdobyte:
+                st.session_state.zdobyte.remove(nazwa_full)
+                st.rerun()
 
 except Exception as e:
-    st.error(f"Wystąpił błąd: {e}")
+    st.error(f"Problem z plikiem: {e}")
