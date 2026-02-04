@@ -26,7 +26,7 @@ init_data = load_user_data()
 if 'user_name' not in st.session_state: st.session_state.user_name = init_data["user_name"]
 if 'zdobyte' not in st.session_state: st.session_state.zdobyte = init_data["zdobyte"]
 
-# 2. Stylizacja CSS (Efekt Wow + Mapy)
+# 2. Stylizacja CSS (Efekt Appki)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
@@ -34,20 +34,18 @@ st.markdown("""
         background: rgba(30, 33, 48, 0.7); backdrop-filter: blur(10px);
         border-radius: 20px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;
     }
-    .mountain-row {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
     .map-link {
-        text-decoration: none; font-size: 20px; padding: 5px 10px;
-        background: rgba(0, 212, 255, 0.1); border-radius: 10px;
+        text-decoration: none; font-size: 20px; padding: 8px 12px;
+        background: #4caf50; color: white !important; border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
+    .mountain-row { border-bottom: 1px solid rgba(255,255,255,0.05); padding: 15px 0; }
     </style>
     """, unsafe_allow_html=True)
 
 # 3. Logika i Dane
 try:
-    # NAPRAWA 'nan': skip_blank_lines=True i dropna usuwają puste rekordy
+    # Agresywne usuwanie 'nan' (puste wiersze i kolumny)
     df = pd.read_csv('dane.csv', sep=None, engine='python', skip_blank_lines=True).dropna(how='all')
     
     st.markdown(f"<h1>Witaj, {st.session_state.user_name}! 🏔️</h1>", unsafe_allow_html=True)
@@ -57,33 +55,35 @@ try:
     proc = int((z_n/r_n)*100) if r_n > 0 else 0
     st.markdown(f"""
         <div class="app-card" style="text-align: center;">
-            <div style="font-size: 40px; font-weight: bold; color: #00d4ff;">{proc}%</div>
-            <div style="color: white;">Zaliczono {z_n} z {r_n} szczytów</div>
+            <div style="font-size: 42px; font-weight: bold; color: #00d4ff;">{proc}%</div>
+            <div style="color: white; font-size: 14px; letter-spacing: 1px;">TWOJA KORONA GÓR POLSKI</div>
         </div>
     """, unsafe_allow_html=True)
 
     # Lista szczytów
-    st.write("### Twoje wyzwania")
+    st.write("### Szlaki i Szczyty")
     for index, row in df.iterrows():
-        # Bezpieczne wczytanie nazwy (naprawa nan w tekście)
+        # Pobranie czystej nazwy
         nazwa_full = str(row.iloc[0]).strip()
-        if nazwa_full == "nan" or not nazwa_full: continue
+        if nazwa_full.lower() == "nan" or not nazwa_full: continue
         
         short_name = nazwa_full.split(" w ")[0]
         
-        # Generowanie linku do Google Maps
+        # Link do Mapy.com (wyszukiwanie konkretnej góry)
         search_query = urllib.parse.quote(f"{short_name} góra Polska")
-        map_url = f"https://www.google.com/maps/search/?api=1&query={search_query}"
+        map_url = f"https://mapy.com/search?q={search_query}"
 
-        # Layout wiersza
-        col_chk, col_txt, col_map = st.columns([1, 4, 1])
-        
-        is_checked = col_chk.checkbox("", key=f"c_{index}", value=(nazwa_full in st.session_state.zdobyte))
-        
-        col_txt.markdown(f"**{short_name}**")
-        col_map.markdown(f' <a href="{map_url}" target="_blank" class="map-link">📍</a>', unsafe_allow_html=True)
+        # Layout wiersza (Checkbox | Nazwa | Mapa)
+        with st.container():
+            c1, c2, c3 = st.columns([1, 4, 1])
+            
+            is_checked = c1.checkbox("", key=f"c_{index}", value=(nazwa_full in st.session_state.zdobyte))
+            c2.markdown(f"**{short_name}**<br><small style='color:#777'>Polska</small>", unsafe_allow_html=True)
+            c3.markdown(f' <a href="{map_url}" target="_blank" class="map-link">📍</a>', unsafe_allow_html=True)
+            
+            st.markdown("<div class='mountain-row'></div>", unsafe_allow_html=True)
 
-        # Obsługa zaznaczania
+        # Obsługa zaznaczania i zapisu
         if is_checked and nazwa_full not in st.session_state.zdobyte:
             st.session_state.zdobyte.append(nazwa_full)
             save_user_data()
@@ -94,4 +94,4 @@ try:
             st.rerun()
 
 except Exception as e:
-    st.error(f"Problem z danymi: {e}")
+    st.error(f"Coś nie tak z danymi: {e}")
