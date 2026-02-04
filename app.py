@@ -38,4 +38,61 @@ DOMYSLNE_FOTO = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=
 def load_data():
     try:
         # Próba odczytu z automatycznym wykrywaniem separatora i obsługą BOM
-        df = pd.read_csv('dane.csv', sep
+        df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='utf-8-sig')
+    except:
+        df = pd.read_csv('dane.csv', sep=None, engine='python', encoding='cp1250')
+    
+    # Czyszczenie nazw kolumn ze spacji i dziwnych znaków
+    df.columns = df.columns.str.replace(r'[^\w\s]', '', regex=True).str.strip()
+    return df
+
+try:
+    df = load_data()
+    st.title("🏔️ Moja Korona Gór Polski")
+    
+    if 'zdobyte' not in st.session_state:
+        st.session_state.zdobyte = []
+
+    # --- DASHBOARD STATYSTYK ---
+    zdobyte_n = len(st.session_state.zdobyte)
+    razem_n = len(df)
+    procent = int((zdobyte_n / razem_n) * 100) if razem_n > 0 else 0
+
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        st.markdown(f"<div class='metric-card'><h3>ZDOBYTE</h3><h2>{zdobyte_n} / {razem_n}</h2></div>", unsafe_allow_html=True)
+    with col_s2:
+        st.markdown(f"<div class='metric-card'><h3>POSTĘP</h3><h2>{procent}%</h2></div>", unsafe_allow_html=True)
+
+    st.write("---")
+
+    # --- KARTY SZCZYTÓW (2 Kolumny) ---
+    col1, col2 = st.columns(2)
+
+    for index, row in df.iterrows():
+        # Pobieramy nazwę z pierwszej dostępnej kolumny (odporność na błąd 'Szczyt')
+        nazwa_full = str(row.iloc[0]).strip()
+        nazwa_low = nazwa_full.lower()
+        
+        with (col1 if index % 2 == 0 else col2):
+            # Dopasowanie zdjęcia
+            url = DOMYSLNE_FOTO
+            for klucz, link in foto_url.items():
+                if klucz in nazwa_low:
+                    url = link
+                    break
+            
+            st.image(url, use_container_width=True)
+            
+            # Checkbox z nazwą
+            if st.checkbox(nazwa_full, key=f"chk_{index}", value=(nazwa_full in st.session_state.zdobyte)):
+                if nazwa_full not in st.session_state.zdobyte:
+                    st.session_state.zdobyte.append(nazwa_full)
+                    st.rerun()
+            else:
+                if nazwa_full in st.session_state.zdobyte:
+                    st.session_state.zdobyte.remove(nazwa_full)
+                    st.rerun()
+
+except Exception as e:
+    st.error(f"⚠️ Wystąpił błąd podczas ładowania aplikacji: {e}")
