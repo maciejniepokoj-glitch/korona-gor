@@ -1,90 +1,99 @@
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection # Biblioteka do obsługi bazy
+from streamlit_gsheets import GSheetsConnection
+import urllib.parse
 
-# 1. Konfiguracja i Stylizacja Premium
-st.set_page_config(page_title="TopTracker Ranking", page_icon="🏆", layout="centered")
+# 1. Konfiguracja strony
+st.set_page_config(page_title="KGP TopTracker", page_icon="🏆", layout="centered")
 
+# 2. BEZPIECZNA INICJALIZACJA (Naprawia błąd ze zdjęcia nr 1)
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
+
+# Stylizacja UI
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #1e2130; border-radius: 10px; padding: 10px 20px; color: white;
-    }
-    .user-card {
-        background: #1e2130; padding: 15px; border-radius: 15px;
-        border-left: 5px solid #00d4ff; margin-bottom: 10px;
-    }
+    .stTabs [data-baseweb="tab"] { background-color: #1e2130; border-radius: 10px; color: white; }
+    .user-card { background: #1e2130; padding: 15px; border-radius: 15px; border-left: 5px solid #00d4ff; margin-bottom: 10px; }
+    .map-btn { background: #4caf50; color: white !important; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-size: 12px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Połączenie z Bazą Danych (Google Sheets)
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-def get_data():
-    return conn.read(ttl="1s") # Odczyt danych w czasie rzeczywistym
-
-# 3. Logowanie / Profil (Bezpieczeństwo)
-if 'user_id' not in st.session_state:
-    st.markdown("### 🏔️ Witaj w TopTracker!")
-    u_name = st.text_input("Podaj swój unikalny Nick, aby zacząć:", placeholder="Np. GorskiWilk92")
-    if st.button("Wejdź do gry"):
-        if u_name:
-            st.session_state.user_id = u_name
+# 3. LOGOWANIE
+if st.session_state.user_id is None:
+    st.title("🏔️ Witaj w TopTracker")
+    nick = st.text_input("Podaj swój Nick, aby wejść:")
+    if st.button("Zaloguj"):
+        if nick:
+            st.session_state.user_id = nick
             st.rerun()
-        else:
-            st.warning("Musisz podać nick!")
     st.stop()
 
-# 4. Główne Menu
-tab1, tab2 = st.tabs(["⛰️ Moje Szczyty", "🏆 Ranking Ogólny"])
+# 4. POŁĄCZENIE Z BAZĄ (Wymaga wpisów w Secrets!)
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    all_data = conn.read(ttl="2s")
+    # Czyścimy dane z pustych wierszy (naprawa nan)
+    if all_data is not None:
+        all_data = all_data.dropna(how='all')
+    else:
+        all_data = pd.DataFrame(columns=['Użytkownik', 'Szczyt'])
+except Exception as e:
+    st.error("Błąd połączenia. Sprawdź, czy dodałeś link do Arkusza w 'Secrets'!")
+    st.stop()
+
+# 5. GŁÓWNE MENU
+tab1, tab2 = st.tabs(["⛰️ Moje Szczyty", "🏆 Ranking"])
 
 with tab1:
-    st.title(f"Profil: {st.session_state.user_id}")
+    st.header(f"Profil: {st.session_state.user_id}")
     
-    # Ładowanie listy szczytów z Twojego pliku dane.csv
-    df_peaks = pd.read_csv('dane.csv', sep=None, engine='python').dropna(how='all')
-    
-    # Pobieranie aktualnych postępów z bazy online
-    all_progress = get_data()
-    my_peaks = all_progress[all_progress['Użytkownik'] == st.session_state.user_id]['Szczyt'].tolist()
+    # Wczytanie szczytów z dane.csv
+    try:
+        df_peaks = pd.read_csv('dane.csv', sep=None, engine='python').dropna(how='all')
+    except:
+        st.error("Nie znaleziono pliku dane.csv!")
+        st.stop()
 
-    st.write(f"Zaliczono: **{len(my_peaks)} / {len(df_peaks)}**")
-    st.progress(len(my_peaks)/len(df_peaks))
+    my_done = all_data[all_data['Użytkownik'] == st.session_state.user_id]['Szczyt'].tolist()
+    
+    st.write(f"Zaliczono: **{len(my_done)} / {len(df_peaks)}**")
+    st.progress(len(my_done)/len(df_peaks) if len(df_peaks) > 0 else 0)
 
     for index, row in df_peaks.iterrows():
-        peak_name = str(row.iloc[0]).strip()
-        is_done = peak_name in my_peaks
+        peak_full = str(row.iloc[0]).strip()
+        if peak_full == "nan": continue
         
-        # Checkbox wysyłający dane do bazy
-        check = st.checkbox(f"📍 {peak_name}", value=is_done, key=f"p_{index}")
+        short = peak_full.split(" w ")[0]
+        is_done = peak_full in my_done
         
-        if check and not is_done:
-            # DODAJ DO BAZY (Tylko dla Twojego nicku)
-            new_row = pd.DataFrame([{"Użytkownik": st.session_state.user_id, "Szczyt": peak_name}])
-            updated_df = pd.concat([all_progress, new_row], ignore_index=True)
-            conn.update(data=updated_df)
-            st.rerun()
-        elif not check and is_done:
-            # USUŃ Z BAZY
-            updated_df = all_progress[~((all_progress['Użytkownik'] == st.session_state.user_id) & (all_progress['Szczyt'] == peak_name))]
-            conn.update(data=updated_df)
-            st.rerun()
+        c1, c2 = st.columns([4, 1])
+        if c1.checkbox(f"📍 {short}", value=is_done, key=f"p_{index}"):
+            if not is_done:
+                new_row = pd.DataFrame([{"Użytkownik": st.session_state.user_id, "Szczyt": peak_full}])
+                updated = pd.concat([all_data, new_row], ignore_index=True)
+                conn.update(data=updated)
+                st.rerun()
+        else:
+            if is_done:
+                updated = all_data[~((all_data['Użytkownik'] == st.session_state.user_id) & (all_data['Szczyt'] == peak_full))]
+                conn.update(data=updated)
+                st.rerun()
+        
+        q = urllib.parse.quote(f"{short} góra Polska")
+        c2.markdown(f'<a href="https://mapy.com/search?q={q}" target="_blank" class="map-btn">MAPA</a>', unsafe_allow_html=True)
 
 with tab2:
-    st.title("Ranking Wędrowców")
-    
-    # Grupowanie wyników wszystkich użytkowników
-    ranking = all_progress.groupby('Użytkownik').size().reset_index(name='Zdobyte')
-    ranking = ranking.sort_values(by='Zdobyte', ascending=False)
-    
-    for i, row in ranking.iterrows():
-        color = "#FFD700" if i == 0 else "#C0C0C0" if i == 1 else "#CD7F32" if i == 2 else "#ffffff"
-        st.markdown(f"""
-            <div class="user-card">
-                <span style="color:{color}; font-weight:bold;">#{i+1}</span> 
-                <b style="color:white; margin-left:15px;">{row['Użytkownik']}</b>
-                <span style="float:right; color:#00d4ff;">{row['Zdobyte']} szczytów</span>
-            </div>
-        """, unsafe_allow_html=True)
+    st.header("🏆 Ranking")
+    if not all_data.empty:
+        ranking = all_data.groupby('Użytkownik').size().reset_index(name='Suma').sort_values('Suma', ascending=False)
+        for i, row in ranking.iterrows():
+            st.markdown(f"""
+                <div class="user-card">
+                    <b>#{i+1} {row['Użytkownik']}</b> 
+                    <span style="float:right; color:#00d4ff;">{row['Suma']} szczytów</span>
+                </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.write("Baza jest pusta. Bądź pierwszy!")
