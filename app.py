@@ -18,10 +18,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Wczytywanie danych z Twojego pliku (średniki!)
+# 2. Wczytywanie danych z Twojego pliku
 @st.cache_data
 def load_peaks():
     try:
+        # Używamy separatora średnik (;) zgodnie z Twoim plikiem
         df = pd.read_csv("dane.csv", sep=";")
         return df.dropna(subset=['Szczyt'])
     except Exception:
@@ -36,7 +37,7 @@ if 'zaliczone' not in st.session_state:
 
 # Nagłówek aplikacji
 st.title("🏔️ Twoja Korona Gór Polski")
-st.write("Śledź swoje postępy w zdobywaniu najwyższych szczytów polskich pasm górskich.")
+st.write("Zaznaczaj zdobyte szczyty i obserwuj swój postęp.")
 
 # 4. Sekcja Statystyk (Dashboard z Procentami)
 progress_count = len(st.session_state.zaliczone)
@@ -51,14 +52,14 @@ with col2:
 with col3:
     st.metric("Pozostało", f"{total_peaks - progress_count}")
 
-# Fancy Pasek Postępu - POPRAWIONA LINIA 55
+# Pasek Postępu
 st.write(f"### Całkowite ukończenie: {progress_percent}%")
 st.progress(progress_count / total_peaks if total_peaks > 0 else 0)
 
 st.divider()
 
 # 5. Lista Szczytów w dwóch kolumnach
-st.subheader("📍 Lista kontrolna szczytów")
+st.subheader("📍 Twoja lista kontrolna")
 left_col, right_col = st.columns(2)
 
 # Dzielimy listę na pół
@@ -68,13 +69,13 @@ for index, row in df_peaks.iterrows():
     peak_name = row['Szczyt']
     h = row['Wysokość mnp']
     
-    # Wybór kolumny
+    # Wybór kolumny (lewa lub prawa)
     target_col = left_col if index < mid_point else right_col
     
     with target_col:
         is_checked = peak_name in st.session_state.zaliczone
         
-        # Fancy checkbox z obsługą stanu
+        # Checkbox ze stanem
         if st.checkbox(f"**{peak_name}** — {h} m n.p.m.", value=is_checked, key=f"peak_{index}"):
             if peak_name not in st.session_state.zaliczone:
                 st.session_state.zaliczone.append(peak_name)
@@ -91,4 +92,5 @@ with st.sidebar:
         st.session_state.zaliczone = []
         st.rerun()
     st.divider()
-    st.info("Dane są przechowywane w pamięci sesji Twojej przeglądarki
+    # Naprawiona linia 94:
+    st.info("Dane są przechowywane w pamięci sesji Twojej przeglądarki.")
