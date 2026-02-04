@@ -71,4 +71,42 @@ try:
     
     c1, c2 = st.columns([1, 2])
     with c1:
-        st.markdown(f"<div class='metric-card'>Z
+        st.markdown(f"<div class='metric-card'>ZALICZONE<br><span style='font-size:30px; font-weight:bold;'>{zdobyte_n} / {razem_n}</span></div>", unsafe_allow_html=True)
+    with c2:
+        st.write("##")
+        st.progress(zdobyte_n / razem_n if razem_n > 0 else 0)
+
+    st.write("---")
+
+    # 4 KOLUMNY (Zgrabny układ)
+    cols = st.columns(4)
+
+    for index, row in df.iterrows():
+        # Pobieramy nazwę i czyścimy ją ze wszystkich dziwnych znaków i spacji
+        oryginalna_nazwa = str(row[df.columns[0]])
+        nazwa_clean = re.sub(r'[^\w\s]', ' ', oryginalna_nazwa).lower()
+        
+        with cols[index % 4]:
+            # Szukamy zdjęcia
+            url = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400"
+            for klucz, link in foto_url.items():
+                if klucz in nazwa_clean:
+                    url = link
+                    break
+            
+            st.image(url, use_container_width=True)
+            
+            # Wyświetlamy tylko pierwszą część nazwy żeby było czytelnie
+            label_display = oryginalna_nazwa.split(' w ')[0].split(' (')[0]
+            
+            checked = st.checkbox(f"{label_display}", key=f"k_{index}", value=(oryginalna_nazwa in st.session_state.zdobyte))
+            
+            if checked and oryginalna_nazwa not in st.session_state.zdobyte:
+                st.session_state.zdobyte.append(oryginalna_nazwa)
+                st.rerun()
+            elif not checked and oryginalna_nazwa in st.session_state.zdobyte:
+                st.session_state.zdobyte.remove(oryginalna_nazwa)
+                st.rerun()
+
+except Exception as e:
+    st.error(f"Coś poszło nie tak: {e}")
